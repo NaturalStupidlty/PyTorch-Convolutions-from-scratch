@@ -70,17 +70,22 @@ class CustomConv2d(torch.nn.Module):
             for c_out in range(out_channels):
                 for h_out in range(out_height):
                     for w_out in range(out_width):
-                        h_start = h_out * self.stride
-                        h_end = h_start + self.weight.size(2) * self.dilation
-                        w_start = w_out * self.stride
-                        w_end = w_start + self.weight.size(3) * self.dilation
+                        output[b, c_out, h_out, w_out] = self._conv_forward(h_out, w_out, c_out, b, padded_input)
 
-                        receptive_field = padded_input[b, :, h_start:h_end:self.dilation, w_start:w_end:self.dilation]
-                        weighted_receptive_field = receptive_field * self.weight[c_out]
-                        output[b, c_out, h_out, w_out] = weighted_receptive_field.sum()
+        return output
 
-                        if self.bias is not None:
-                            output[b, c_out, h_out, w_out] += self.bias[c_out]
+    def _conv_forward(self, h_out, w_out, c_out, b, padded_input):
+        h_start = h_out * self.stride
+        h_end = h_start + self.weight.size(2) * self.dilation
+        w_start = w_out * self.stride
+        w_end = w_start + self.weight.size(3) * self.dilation
+
+        receptive_field = padded_input[b, :, h_start:h_end:self.dilation, w_start:w_end:self.dilation]
+        weighted_receptive_field = receptive_field * self.weight[c_out]
+        output = weighted_receptive_field.sum()
+
+        if self.bias is not None:
+            output += self.bias[c_out]
 
         return output
 

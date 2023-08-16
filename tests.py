@@ -26,7 +26,7 @@ def _setup(transpose: bool, in_channels, out_channels, kernel_size, stride, padd
     return pytorch_conv, custom_conv
 
 
-def _test_forward(pytorch_conv, custom_conv, random_data, epsilon):
+def _test_forward(pytorch_conv, custom_conv, random_data, epsilon=0.01):
     output_pytorch = pytorch_conv(random_data)
     custom_output = custom_conv(random_data)
 
@@ -38,11 +38,11 @@ def _test_forward(pytorch_conv, custom_conv, random_data, epsilon):
     assert mse_loss.item() < epsilon, f"MSE ({mse_loss.item()}) is not less than epsilon ({epsilon})"
 
 
-def _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon):
+def _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon, iterations=100):
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.SGD(pytorch_conv.parameters(), lr=0.01)
 
-    for i in range(100):
+    for i in range(iterations):
         # Torch weights update
         pytorch_conv.zero_grad()
         output_pytorch = pytorch_conv(random_data)
@@ -64,14 +64,13 @@ def _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon):
         assert w1.shape == w2.shape, \
             f"Weight gradients shape ({w2.shape}) is not equal to PyTorch weight gradients shape ({w1.shape})"
 
+        mse_grad_w = torch.nn.functional.mse_loss(w1, w2)
         mse_loss = torch.nn.functional.mse_loss(pytorch_loss, custom_loss)
+        print(f"MSE of losses: {mse_loss.item()}")
         assert mse_loss.item() < epsilon, f"MSE ({mse_loss.item()}) is not less than epsilon ({epsilon})"
 
-        mse_grad_w = torch.nn.functional.mse_loss(w1, w2)
-        print(f"MSE of weight gradients: {mse_grad_w.item()}")
 
-
-def test_conv2d():
+def test_conv2d(iterations=1):
     in_channels = 3
     out_channels = 2
     kernel_size = 3
@@ -89,13 +88,13 @@ def test_conv2d():
     pytorch_conv, custom_conv = _setup(False, in_channels, out_channels, kernel_size, stride, padding, dilation, bias,
                                        groups)
 
-    _test_forward(pytorch_conv, custom_conv, random_data, epsilon)
-    _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon)
+    _test_forward(pytorch_conv, custom_conv, random_data)
+    _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon=1e-4, iterations=iterations)
 
 
-def test_conv_transposed2d():
-    in_channels = 1
-    out_channels = 1
+def test_conv_transposed2d(iterations=1):
+    in_channels = 3
+    out_channels = 16
     kernel_size = 2
     stride = 2
     padding = 2
@@ -105,13 +104,13 @@ def test_conv_transposed2d():
     bias = True
     samples = 2
 
-    random_data = torch.rand(samples, in_channels, 24, 24)
+    random_data = torch.rand(samples, in_channels, 12, 24)
     target = torch.rand(samples, out_channels, 44, 44)
 
     pytorch_conv, custom_conv = _setup(True, in_channels, out_channels, kernel_size, stride, padding, dilation, bias,
                                        groups, output_padding)
-    _test_forward(pytorch_conv, custom_conv, random_data, epsilon=0.01)
-    # _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon=1e-5)
+    _test_forward(pytorch_conv, custom_conv, random_data)
+    _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon=1e-4, iterations=iterations)
 
 
 def main():
@@ -119,7 +118,7 @@ def main():
     random.seed(random_seed)
     torch.manual_seed(random_seed)
 
-    #test_conv2d()
+    test_conv2d()
     test_conv_transposed2d()
 
 
