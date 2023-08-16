@@ -26,7 +26,7 @@ def _setup(transpose: bool, in_channels, out_channels, kernel_size, stride, padd
     return pytorch_conv, custom_conv
 
 
-def test_forward(pytorch_conv, custom_conv, random_data, epsilon):
+def _test_forward(pytorch_conv, custom_conv, random_data, epsilon):
     output_pytorch = pytorch_conv(random_data)
     custom_output = custom_conv(random_data)
 
@@ -38,7 +38,7 @@ def test_forward(pytorch_conv, custom_conv, random_data, epsilon):
     assert mse_loss.item() < epsilon, f"MSE ({mse_loss.item()}) is not less than epsilon ({epsilon})"
 
 
-def test_backward(pytorch_conv, custom_conv, random_data, target, epsilon):
+def _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon):
     criterion = torch.nn.MSELoss()
     optimizer = torch.optim.SGD(pytorch_conv.parameters(), lr=0.01)
 
@@ -71,31 +71,29 @@ def test_backward(pytorch_conv, custom_conv, random_data, target, epsilon):
         print(f"MSE of weight gradients: {mse_grad_w.item()}")
 
 
-def main():
-    random_seed = 42
-    random.seed(random_seed)
-    torch.manual_seed(random_seed)
+def test_conv2d():
+    in_channels = 3
+    out_channels = 2
+    kernel_size = 3
+    stride = 1
+    padding = 0
+    dilation = 1
+    bias = True
+    groups = 1
+    epsilon = 1e-13
+    samples = 1
 
-    # in_channels = 3
-    # out_channels = 2
-    # kernel_size = 3
-    # stride = 1
-    # padding = 0
-    # dilation = 1
-    # bias = True
-    # groups = 1
-    # epsilon = 1e-13
-    # samples = 1
-    #
-    # random_data = torch.rand(samples, in_channels, 28, 28)
-    # target = torch.randn(samples, out_channels, 26, 26)
-    #
-    # pytorch_conv, custom_conv = _setup(False, in_channels, out_channels, kernel_size, stride, padding, dilation, bias,
-    #                                    groups)
-    #
-    # test_conv2d_forward(pytorch_conv, custom_conv, random_data, epsilon)
-    # test_backward(pytorch_conv, custom_conv, random_data, target, epsilon)
+    random_data = torch.rand(samples, in_channels, 28, 28)
+    target = torch.randn(samples, out_channels, 26, 26)
 
+    pytorch_conv, custom_conv = _setup(False, in_channels, out_channels, kernel_size, stride, padding, dilation, bias,
+                                       groups)
+
+    _test_forward(pytorch_conv, custom_conv, random_data, epsilon)
+    _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon)
+
+
+def test_conv_transposed2d():
     in_channels = 1
     out_channels = 1
     kernel_size = 2
@@ -112,8 +110,17 @@ def main():
 
     pytorch_conv, custom_conv = _setup(True, in_channels, out_channels, kernel_size, stride, padding, dilation, bias,
                                        groups, output_padding)
-    test_forward(pytorch_conv, custom_conv, random_data, epsilon=0.01)
-    #test_backward(pytorch_conv, custom_conv, random_data, target, epsilon=1e-5)
+    _test_forward(pytorch_conv, custom_conv, random_data, epsilon=0.01)
+    # _test_backward(pytorch_conv, custom_conv, random_data, target, epsilon=1e-5)
+
+
+def main():
+    random_seed = 42
+    random.seed(random_seed)
+    torch.manual_seed(random_seed)
+
+    #test_conv2d()
+    test_conv_transposed2d()
 
 
 if __name__ == "__main__":
